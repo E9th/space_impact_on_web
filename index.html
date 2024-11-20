@@ -186,6 +186,55 @@
             });
         }
 
+        const enemyBullets = [];
+const enemyBulletWidth = 5;
+const enemyBulletHeight = 10;
+const enemyBulletSpeed = 5;
+
+function enemyShootBullet() {
+    enemies.forEach((enemy) => {
+        // สุ่มยิงกระสุนในบางโอกาส
+        if (Math.random() < 0.02) { // ความน่าจะเป็น 2%
+            enemyBullets.push({
+                x: enemy.x + enemyWidth / 2 - enemyBulletWidth / 2,
+                y: enemy.y + enemyHeight
+            });
+        }
+    });
+}
+
+function drawEnemyBullets() {
+    ctx.fillStyle = "orange";
+    enemyBullets.forEach((bullet) => {
+        ctx.fillRect(bullet.x, bullet.y, enemyBulletWidth, enemyBulletHeight);
+    });
+}
+
+function updateEnemyBullets() {
+    enemyBullets.forEach((bullet, index) => {
+        bullet.y += enemyBulletSpeed;
+
+        // ลบกระสุนที่ออกนอกขอบจอ
+        if (bullet.y > canvas.height) {
+            enemyBullets.splice(index, 1);
+        }
+
+        // ตรวจสอบว่ากระสุนชนยานของผู้เล่นหรือไม่
+        if (
+            bullet.x < shipX + shipWidth &&
+            bullet.x + enemyBulletWidth > shipX &&
+            bullet.y < shipY + shipHeight &&
+            bullet.y + enemyBulletHeight > shipY
+        ) {
+            lives--; // ลดจำนวนชีวิต
+            enemyBullets.splice(index, 1);
+            if (lives <= 0) {
+                stopGame();
+            }
+        }
+    });
+}
+        
         function spawnEnemy() {
     const x = Math.random() * (canvas.width - enemyWidth);
     enemies.push({ x: x, y: 0 });
@@ -249,7 +298,16 @@ function updatePowerUps() {
                 ctx.fill();
             });
         }
-        
+
+        function shootBullet() {
+    if (isSpacePressed) {
+        bullets.push({
+            x: shipX + shipWidth / 2 - bulletWidth / 2, // กำหนดตำแหน่งของกระสุนให้อยู่กึ่งกลางยาน
+            y: shipY - bulletHeight // กำหนดตำแหน่งของกระสุนให้อยู่ด้านบนยาน
+        });
+    }
+}
+
 function updateShip() {
     if (isLeftPressed && shipX > 0) {
         shipX -= shipSpeed;
@@ -315,6 +373,31 @@ function updateShip() {
                 ctx.fillText(storyLines[currentStoryIndex], 20, canvas.height / 2);
             }
         }
+
+        function updateBullets() {
+    bullets.forEach((bullet, bulletIndex) => {
+        bullet.y -= bulletSpeed;
+
+        // ลบกระสุนที่ออกนอกขอบจอ
+        if (bullet.y + bulletHeight < 0) {
+            bullets.splice(bulletIndex, 1);
+        }
+
+        // ตรวจสอบว่ากระสุนชนศัตรูหรือไม่
+        enemies.forEach((enemy, enemyIndex) => {
+            if (
+                bullet.x < enemy.x + enemyWidth &&
+                bullet.x + bulletWidth > enemy.x &&
+                bullet.y < enemy.y + enemyHeight &&
+                bullet.y + bulletHeight > enemy.y
+            ) {
+                enemies.splice(enemyIndex, 1); // ลบศัตรูที่โดนยิง
+                bullets.splice(bulletIndex, 1); // ลบกระสุนที่ยิงโดน
+                score += 10; // เพิ่มคะแนน
+            }
+        });
+    });
+}
 
         function nextStory() {
             currentStoryIndex++;
@@ -416,8 +499,6 @@ function updateShip() {
         let isGameRunning = true;
 
 function gameLoop() {
-    if (!isGameRunning) return;
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawWeatherEffects();
     updateWeatherEffects();
@@ -433,16 +514,21 @@ function gameLoop() {
         drawExplosions();
         drawScoreAndLives();
         drawEnergyBar();
+        drawEnemyBullets();   // วาดกระสุนของศัตรู
         updateShip();
         updateBullets();
         updateEnemies();
         updatePowerUps();
+        updateEnemyBullets(); // อัปเดตกระสุนของศัตรู
+        shootBullet();        // ยิงกระสุนของผู้เล่น
+        enemyShootBullet();   // ยิงกระสุนของศัตรู
         checkSupportItemCollection();
         regenEnergy();
         checkAchievements();
     }
     requestAnimationFrame(gameLoop);
 }
+
         // ฟังก์ชันเพื่อหยุดเกมในกรณีที่ผู้เล่นแพ้
 function stopGame() {
     isGameRunning = false;
