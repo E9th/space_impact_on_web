@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Impact Clone</title>
+    <style>
+        canvas {
+            background-color: #000;
+            display: block;
+            margin: 0 auto;
+            border: 2px solid #444;
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+        }
+        body {
+            color: white;
+            text-align: center;
+            font-family: 'Press Start 2P', cursive;
+            background-color: #222;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px auto;
+            width: 640px;
+            max-width: 100%;
+            font-size: 14px;
+        }
+        .mobile-controls {
+            display: none;
+            margin-top: 20px;
+        }
+        .control-button {
+            padding: 10px;
+            font-size: 18px;
+            margin: 5px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: block;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <h1>Space Impact Clone</h1>
+    <div class="status-bar">
+        <div id="score">Score: 0</div>
+        <div id="level">Level: 1</div>
+        <div id="lives">Lives: 3</div>
+    </div>
+    <canvas id="gameCanvas" width="640" height="480"></canvas>
+    <div class="mobile-controls">
+        <button class="control-button" id="upButton">Up</button>
+        <button class="control-button" id="downButton">Down</button>
+        <button class="control-button" id="leftButton">Left</button>
+        <button class="control-button" id="rightButton">Right</button>
+        <button class="control-button" id="shootButton">Shoot</button>
+    </div>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // ตัวแปรหลักของเกม
+        const shipWidth = 40;
+        const shipHeight = 20;
+        let shipX = canvas.width / 2 - shipWidth / 2;
+        let shipY = canvas.height - shipHeight - 10;
+        let shipSpeed = 5;
+        let lives = 3;
+        let score = 0;
+        let level = 1;
+        let enemySpeed = 2;
+        let energy = 100;
+        const maxEnergy = 100;
+        const energyUsage = 30;
+        const energyRegenRate = 0.5;
+        let highScore = 0;
+
+        const bullets = [];
+        const bulletWidth = 5;
+        const bulletHeight = 10;
+        const bulletSpeed = 7;
+
+        const enemies = [];
+        const enemyWidth = 30;
+        const enemyHeight = 20;
+        const spawnIntervalBase = 1500;
+        let spawnInterval = spawnIntervalBase;
+
+        const powerUps = [];
+        const powerUpWidth = 15;
+        const powerUpHeight = 15;
+        const powerUpSpeed = 1.5;
+        const powerUpSpawnInterval = 10000;
+
+        const supportItems = [];
+        const supportItemWidth = 15;
+        const supportItemHeight = 15;
+        const supportItemTypes = ["shield", "repair", "speedBoost"];
+        const supportItemSpawnInterval = 20000;
+
+        const weatherEffects = [];
+        const maxWeatherParticles = 100;
+        const weatherType = "rain";
+
+        const explosions = [];
+        const achievements = [
+            { name: "First Blood", description: "Destroy your first enemy", achieved: false },
+            { name: "Power-Up Collector", description: "Collect 5 power-ups", achieved: false, count: 0, target: 5 },
+            { name: "Boss Slayer", description: "Defeat the boss", achieved: false }
+        ];
+
+        const storyLines = [
+            "In a distant galaxy, an elite pilot embarks on a mission to save the universe...",
+            "Level 1: The journey begins with a fleet of enemy drones blocking the path.",
+            "Level 5: Beware! A powerful boss awaits at the end of this stage.",
+            "Victory! You have defeated the boss and reclaimed peace, but the journey is not over..."
+        ];
+        let currentStoryIndex = 0;
+        let showStory = true;
+
+        let isLeftPressed = false;
+        let isRightPressed = false;
+        let isUpPressed = false;
+        let isDownPressed = false;
+        let isSpacePressed = false;
+
+        // Event listeners for controls
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft" || e.key === "a") isLeftPressed = true;
+            else if (e.key === "ArrowRight" || e.key === "d") isRightPressed = true;
+            else if (e.key === "ArrowUp" || e.key === "w") isUpPressed = true;
+            else if (e.key === "ArrowDown" || e.key === "s") isDownPressed = true;
+            else if (e.key === " ") isSpacePressed = true;
+            else if (e.key === "Enter" && showStory) nextStory();
+            else if (e.key === "s") showStore();
+        });
+
+        document.addEventListener("keyup", (e) => {
+            if (e.key === "ArrowLeft" || e.key === "a") isLeftPressed = false;
+            else if (e.key === "ArrowRight" || e.key === "d") isRightPressed = false;
+            else if (e.key === "ArrowUp" || e.key === "w") isUpPressed = false;
+            else if (e.key === "ArrowDown" || e.key === "s") isDownPressed = false;
+            else if (e.key === " ") isSpacePressed = false;
+        });
+
+        // Mobile controls
+        document.getElementById("upButton").addEventListener("touchstart", () => isUpPressed = true);
+        document.getElementById("upButton").addEventListener("touchend", () => isUpPressed = false);
+        document.getElementById("downButton").addEventListener("touchstart", () => isDownPressed = true);
+        document.getElementById("downButton").addEventListener("touchend", () => isDownPressed = false);
+        document.getElementById("leftButton").addEventListener("touchstart", () => isLeftPressed = true);
+        document.getElementById("leftButton").addEventListener("touchend", () => isLeftPressed = false);
+        document.getElementById("rightButton").addEventListener("touchstart", () => isRightPressed = true);
+        document.getElementById("rightButton").addEventListener("touchend", () => isRightPressed = false);
+        document.getElementById("shootButton").addEventListener("touchstart", () => isSpacePressed = true);
+        document.getElementById("shootButton").addEventListener("touchend", () => isSpacePressed = false);
+
+        function drawShip() {
+            ctx.fillStyle = "blue";
+            ctx.fillRect(shipX, shipY, shipWidth, shipHeight);
+        }
+
+        function drawBullets() {
+            ctx.fillStyle = "red";
+            bullets.forEach((bullet) => {
+                ctx.fillRect(bullet.x, bullet.y, bulletWidth, bulletHeight);
+            });
+        }
+
+        function drawEnemies() {
+            ctx.fillStyle = "green";
+            enemies.forEach((enemy) => {
+                ctx.fillRect(enemy.x, enemy.y, enemyWidth, enemyHeight);
+            });
+        }
+
+        function drawPowerUps() {
+            ctx.fillStyle = "yellow";
+            powerUps.forEach((powerUp) => {
+                ctx.fillRect(powerUp.x, powerUp.y, powerUpWidth, powerUpHeight);
+            });
+        }
+
+        function drawSupportItems() {
+            supportItems.forEach((item) => {
+                ctx.fillStyle = item.type === "shield" ? "lightblue" :
+                                item.type === "repair" ? "green" : "yellow";
+                ctx.fillRect(item.x, item.y, supportItemWidth, supportItemHeight);
+            });
+        }
+
+        function drawWeatherEffects() {
+            ctx.fillStyle = weatherType === "rain" ? "blue" : "white";
+            weatherEffects.forEach((particle) => {
+                ctx.beginPath();
+                if (weatherType === "rain") {
+                    ctx.rect(particle.x, particle.y, 1, particle.size * 5);
+                } else {
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                }
+                ctx.fill();
+            });
+        }
+
+        function drawExplosions() {
+            ctx.fillStyle = "orange";
+            explosions.forEach((explosion, index) => {
+                ctx.beginPath();
+                ctx.arc(explosion.x, explosion.y, explosion.frame, 0, Math.PI * 2);
+                ctx.fill();
+                explosion.frame += 1;
+                if (explosion.frame > 15) explosions.splice(index, 1);
+            });
+        }
+
+        function drawScoreAndLives() {
+            ctx.fillStyle = "white";
+            ctx.font = "16px Arial";
+            ctx.fillText("Score: " + score, 10, 20);
+            ctx.fillText("Lives: " + lives, canvas.width - 70, 20);
+            ctx.fillText("Level: " + level, canvas.width / 2 - 30, 20);
+            ctx.fillText("High Score: " + highScore, canvas.width - 160, 50);
+        }
+
+        function drawEnergyBar() {
+            ctx.fillStyle = "white";
+            ctx.fillRect(10, 30, maxEnergy, 10);
+            ctx.fillStyle = "cyan";
+            ctx.fillRect(10, 30, energy, 10);
+            ctx.fillStyle = "white";
+            ctx.font = "12px Arial";
+            ctx.fillText("Energy: " + Math.floor(energy), 10, 50);
+        }
+
+        function displayStory() {
+            if (showStory && currentStoryIndex < storyLines.length) {
+                ctx.fillStyle = "white";
+                ctx.font = "20px Arial";
+                ctx.fillText(storyLines[currentStoryIndex], 20, canvas.height / 2);
+            }
+        }
+
+        function nextStory() {
+            currentStoryIndex++;
+            if (currentStoryIndex >= storyLines.length) showStory = false;
+        }
+
+        function createWeatherEffects() {
+            for (let i = 0; i < maxWeatherParticles; i++) {
+                weatherEffects.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    speed: Math.random() * 2 + 1,
+                    size: Math.random() * 2 + 1
+                });
+            }
+        }
+
+        function spawnSupportItem() {
+            const type = supportItemTypes[Math.floor(Math.random() * supportItemTypes.length)];
+            const x = Math.random() * (canvas.width - supportItemWidth);
+            supportItems.push({ x: x, y: 0, type: type });
+        }
+
+        function checkSupportItemCollection() {
+            supportItems.forEach((item, index) => {
+                if (shipX < item.x + supportItemWidth && shipX + shipWidth > item.x && shipY < item.y + supportItemHeight && shipY + shipHeight > item.y) {
+                    if (item.type === "shield") {
+                        alert("Shield activated! You are protected.");
+                    } else if (item.type === "repair") {
+                        lives++;
+                        alert("Repair collected! Extra life added.");
+                    } else if (item.type === "speedBoost") {
+                        shipSpeed += 2;
+                        setTimeout(() => { shipSpeed -= 2; }, 5000);
+                        alert("Speed Boost activated!");
+                    }
+                    supportItems.splice(index, 1);
+                }
+            });
+        }
+
+        function checkAchievements() {
+            if (score >= 10 && !achievements[0].achieved) {
+                achievements[0].achieved = true;
+                alert("Achievement Unlocked: " + achievements[0].name);
+            }
+            if (achievements[1].count >= achievements[1].target && !achievements[1].achieved) {
+                achievements[1].achieved = true;
+                alert("Achievement Unlocked: " + achievements[1].name);
+            }
+            if (!isBossActive && bossLives <= 0 && !achievements[2].achieved) {
+                achievements[2].achieved = true;
+                alert("Achievement Unlocked: " + achievements[2].name);
+            }
+        }
+
+        function showStore() {
+            let storeMessage = "Welcome to the Store!\n";
+            storeItems.forEach((item, index) => {
+                storeMessage += `${index + 1}. ${item.name} - Cost: ${item.cost} points\n`;
+            });
+            storeMessage += "Enter the number of the item you wish to purchase or cancel to exit.";
+            const userChoice = prompt(storeMessage);
+
+            if (userChoice && !isNaN(userChoice) && storeItems[userChoice - 1]) {
+                const selectedItem = storeItems[userChoice - 1];
+                if (score >= selectedItem.cost) {
+                    score -= selectedItem.cost;
+                    selectedItem.action(); // เรียกใช้ฟังก์ชันการซื้อไอเทม
+                } else {
+                    alert("Not enough points to purchase this item.");
+                }
+            } else {
+                alert("Invalid choice or cancelled.");
+            }
+        }
+
+        function addExplosion(x, y) {
+            explosions.push({ x: x, y: y, frame: 0 });
+        }
+
+        function updateWeatherEffects() {
+            weatherEffects.forEach((particle) => {
+                particle.y += particle.speed;
+                if (particle.y > canvas.height) {
+                    particle.y = 0;
+                    particle.x = Math.random() * canvas.width;
+                }
+            });
+        }
+
+        function regenEnergy() {
+            if (energy < maxEnergy) {
+                energy += energyRegenRate;
+                energy = Math.min(energy, maxEnergy);
+            }
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawWeatherEffects();
+            updateWeatherEffects();
+            drawSupportItems();
+            updateSupportItems();
+            if (showStory) {
+                displayStory();
+            } else {
+                drawShip();
+                drawBullets();
+                drawEnemies();
+                drawPowerUps();
+                drawExplosions();
+                drawScoreAndLives();
+                drawEnergyBar();
+                updateShip();
+                updateBullets();
+                updateEnemies();
+                updatePowerUps();
+                checkSupportItemCollection();
+                regenEnergy();
+                checkAchievements();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateSupportItems() {
+            supportItems.forEach((item, index) => {
+                item.y += 1;
+                if (item.y > canvas.height) {
+                    supportItems.splice(index, 1); // ลบไอเทมที่หลุดจากหน้าจอ
+                }
+            });
+        }
+
+        // เริ่มต้นการเกิดไอเทมสนับสนุน
+        setInterval(spawnSupportItem, supportItemSpawnInterval);
+        createWeatherEffects();
+        gameLoop();
+    </script>
+</body>
+</html>
