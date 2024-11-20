@@ -89,6 +89,9 @@
         const bulletHeight = 10;
         const bulletSpeed = 7;
 
+        let isBossActive = false;
+        let bossLives = 5; // กำหนดจำนวนชีวิตของบอส
+
         const enemies = [];
         const enemyWidth = 30;
         const enemyHeight = 20;
@@ -183,12 +186,48 @@
             });
         }
 
+        function spawnEnemy() {
+    const x = Math.random() * (canvas.width - enemyWidth);
+    enemies.push({ x: x, y: 0 });
+}
+
+function spawnPowerUp() {
+    const x = Math.random() * (canvas.width - powerUpWidth);
+    powerUps.push({ x: x, y: 0 });
+}
+
+// เริ่มต้นการเกิดศัตรูและ power-ups
+setInterval(spawnEnemy, spawnInterval);
+setInterval(spawnPowerUp, powerUpSpawnInterval);
+
         function drawPowerUps() {
             ctx.fillStyle = "yellow";
             powerUps.forEach((powerUp) => {
                 ctx.fillRect(powerUp.x, powerUp.y, powerUpWidth, powerUpHeight);
             });
         }
+
+        function updateEnemies() {
+    enemies.forEach((enemy, index) => {
+        enemy.y += enemySpeed;
+
+        // ลบศัตรูที่ออกนอกขอบจอ
+        if (enemy.y > canvas.height) {
+            enemies.splice(index, 1);
+        }
+    });
+}
+
+function updatePowerUps() {
+    powerUps.forEach((powerUp, index) => {
+        powerUp.y += powerUpSpeed;
+
+        // ลบ power-ups ที่ออกนอกขอบจอ
+        if (powerUp.y > canvas.height) {
+            powerUps.splice(index, 1);
+        }
+    });
+}
 
         function drawSupportItems() {
             supportItems.forEach((item) => {
@@ -272,7 +311,7 @@ function updateShip() {
         function displayStory() {
             if (showStory && currentStoryIndex < storyLines.length) {
                 ctx.fillStyle = "white";
-                ctx.font = "20px Arial";
+                ctx.font = "10px Arial";
                 ctx.fillText(storyLines[currentStoryIndex], 20, canvas.height / 2);
             }
         }
@@ -374,32 +413,41 @@ function updateShip() {
             }
         }
 
-        function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawWeatherEffects();
-            updateWeatherEffects();
-            drawSupportItems();
-            updateSupportItems();
-            if (showStory) {
-                displayStory();
-            } else {
-                drawShip();
-                drawBullets();
-                drawEnemies();
-                drawPowerUps();
-                drawExplosions();
-                drawScoreAndLives();
-                drawEnergyBar();
-                updateShip();
-                updateBullets();
-                updateEnemies();
-                updatePowerUps();
-                checkSupportItemCollection();
-                regenEnergy();
-                checkAchievements();
-            }
-            requestAnimationFrame(gameLoop);
-        }
+        let isGameRunning = true;
+
+function gameLoop() {
+    if (!isGameRunning) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawWeatherEffects();
+    updateWeatherEffects();
+    drawSupportItems();
+    updateSupportItems();
+    if (showStory) {
+        displayStory();
+    } else {
+        drawShip();
+        drawBullets();
+        drawEnemies();
+        drawPowerUps();
+        drawExplosions();
+        drawScoreAndLives();
+        drawEnergyBar();
+        updateShip();
+        updateBullets();
+        updateEnemies();
+        updatePowerUps();
+        checkSupportItemCollection();
+        regenEnergy();
+        checkAchievements();
+    }
+    requestAnimationFrame(gameLoop);
+}
+        // ฟังก์ชันเพื่อหยุดเกมในกรณีที่ผู้เล่นแพ้
+function stopGame() {
+    isGameRunning = false;
+    alert("Game Over! Your score: " + score);
+}
 
         function updateSupportItems() {
             supportItems.forEach((item, index) => {
