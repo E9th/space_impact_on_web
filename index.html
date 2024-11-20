@@ -226,6 +226,19 @@ function updateShip() {
     }
 }
 
+        function updateBullets() {
+    bullets.forEach((bullet, index) => {
+        // อัปเดตตำแหน่งของกระสุน
+        bullet.y -= bulletSpeed;
+
+        // ลบกระสุนที่ออกนอกขอบจอ
+        if (bullet.y + bulletHeight < 0) {
+            bullets.splice(index, 1);
+        }
+    });
+}
+
+
         function drawExplosions() {
             ctx.fillStyle = "orange";
             explosions.forEach((explosion, index) => {
