@@ -210,6 +210,21 @@
                 ctx.fill();
             });
         }
+        
+function updateShip() {
+    if (isLeftPressed && shipX > 0) {
+        shipX -= shipSpeed;
+    }
+    if (isRightPressed && shipX < canvas.width - shipWidth) {
+        shipX += shipSpeed;
+    }
+    if (isUpPressed && shipY > 0) {
+        shipY -= shipSpeed;
+    }
+    if (isDownPressed && shipY < canvas.height - shipHeight) {
+        shipY += shipSpeed;
+    }
+}
 
         function drawExplosions() {
             ctx.fillStyle = "orange";
