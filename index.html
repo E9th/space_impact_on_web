@@ -194,7 +194,7 @@ const enemyBulletSpeed = 5;
 function enemyShootBullet() {
     enemies.forEach((enemy) => {
         // สุ่มยิงกระสุนในบางโอกาส
-        if (Math.random() < 0.02) { // ความน่าจะเป็น 2%
+        if (Math.random() < 0.01) { // ลดความน่าจะเป็นเพื่อทำให้การยิงน้อยลง
             enemyBullets.push({
                 x: enemy.x + enemyWidth / 2 - enemyBulletWidth / 2,
                 y: enemy.y + enemyHeight
@@ -234,7 +234,19 @@ function updateEnemyBullets() {
         }
     });
 }
-        
+
+        function spawnBoss() {
+    if (level === 5 && !isBossActive) {
+        isBossActive = true;
+        enemies.push({
+            x: canvas.width / 2 - enemyWidth / 2,
+            y: 50,
+            isBoss: true,
+            bossLives: bossLives // บอสมีชีวิตเท่ากับ `bossLives`
+        });
+    }
+}
+
         function spawnEnemy() {
     const x = Math.random() * (canvas.width - enemyWidth);
     enemies.push({ x: x, y: 0 });
@@ -258,7 +270,12 @@ setInterval(spawnPowerUp, powerUpSpawnInterval);
 
         function updateEnemies() {
     enemies.forEach((enemy, index) => {
-        enemy.y += enemySpeed;
+        if (enemy.isBoss) {
+            // การเคลื่อนที่ของบอส
+            enemy.y += 0.5; // บอสเคลื่อนที่ช้ากว่าศัตรูทั่วไป
+        } else {
+            enemy.y += enemySpeed;
+        }
 
         // ลบศัตรูที่ออกนอกขอบจอ
         if (enemy.y > canvas.height) {
@@ -299,12 +316,17 @@ function updatePowerUps() {
             });
         }
 
-        function shootBullet() {
-    if (isSpacePressed) {
+let lastShootTime = 0;
+const shootInterval = 500; // สามารถยิงกระสุนได้ทุกๆ 500 มิลลิวินาที
+
+function shootBullet() {
+    const currentTime = Date.now();
+    if (isSpacePressed && currentTime - lastShootTime > shootInterval) {
         bullets.push({
-            x: shipX + shipWidth / 2 - bulletWidth / 2, // กำหนดตำแหน่งของกระสุนให้อยู่กึ่งกลางยาน
-            y: shipY - bulletHeight // กำหนดตำแหน่งของกระสุนให้อยู่ด้านบนยาน
+            x: shipX + shipWidth / 2 - bulletWidth / 2,
+            y: shipY - bulletHeight
         });
+        lastShootTime = currentTime;
     }
 }
 
@@ -323,18 +345,39 @@ function updateShip() {
     }
 }
 
-        function updateBullets() {
-    bullets.forEach((bullet, index) => {
-        // อัปเดตตำแหน่งของกระสุน
+function updateBullets() {
+    bullets.forEach((bullet, bulletIndex) => {
         bullet.y -= bulletSpeed;
 
         // ลบกระสุนที่ออกนอกขอบจอ
         if (bullet.y + bulletHeight < 0) {
-            bullets.splice(index, 1);
+            bullets.splice(bulletIndex, 1);
         }
+
+        // ตรวจสอบว่ากระสุนชนศัตรูหรือไม่
+        enemies.forEach((enemy, enemyIndex) => {
+            if (
+                bullet.x < enemy.x + enemyWidth &&
+                bullet.x + bulletWidth > enemy.x &&
+                bullet.y < enemy.y + enemyHeight &&
+                bullet.y + bulletHeight > enemy.y
+            ) {
+                if (enemy.isBoss) {
+                    enemy.bossLives--;
+                    if (enemy.bossLives <= 0) {
+                        enemies.splice(enemyIndex, 1);
+                        isBossActive = false; // บอสถูกทำลาย
+                        score += 50; // คะแนนพิเศษเมื่อชนะบอส
+                    }
+                } else {
+                    enemies.splice(enemyIndex, 1); // ลบศัตรูที่โดนยิง
+                    score += 10; // เพิ่มคะแนน
+                }
+                bullets.splice(bulletIndex, 1); // ลบกระสุนที่ยิงโดน
+            }
+        });
     });
 }
-
 
         function drawExplosions() {
             ctx.fillStyle = "orange";
@@ -507,6 +550,7 @@ function gameLoop() {
     if (showStory) {
         displayStory();
     } else {
+        spawnBoss(); // สร้างบอสเมื่อถึงเลเวลที่กำหนด
         drawShip();
         drawBullets();
         drawEnemies();
@@ -514,20 +558,21 @@ function gameLoop() {
         drawExplosions();
         drawScoreAndLives();
         drawEnergyBar();
-        drawEnemyBullets();   // วาดกระสุนของศัตรู
+        drawEnemyBullets();
         updateShip();
         updateBullets();
         updateEnemies();
         updatePowerUps();
-        updateEnemyBullets(); // อัปเดตกระสุนของศัตรู
-        shootBullet();        // ยิงกระสุนของผู้เล่น
-        enemyShootBullet();   // ยิงกระสุนของศัตรู
+        updateEnemyBullets();
+        shootBullet();
+        enemyShootBullet();
         checkSupportItemCollection();
         regenEnergy();
         checkAchievements();
     }
     requestAnimationFrame(gameLoop);
 }
+
 
         // ฟังก์ชันเพื่อหยุดเกมในกรณีที่ผู้เล่นแพ้
 function stopGame() {
