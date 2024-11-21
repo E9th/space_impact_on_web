@@ -496,22 +496,16 @@ function updateBullets() {
                 bullet.y < enemy.y + enemyHeight &&
                 bullet.y + bulletHeight > enemy.y
             ) {
-                if (enemy.isBoss) {
-                    enemy.bossLives--;
-                    if (enemy.bossLives <= 0) {
-                        enemies.splice(enemyIndex, 1);
-                        isBossActive = false; // บอสถูกทำลาย
-                        score += 50; // เพิ่มคะแนนเมื่อชนะบอส
-                        money += 200; // ได้รับเงินเมื่อชนะบอส
-                        level++;
-                        changeScene();
-                    }
-                } else {
-                    enemies.splice(enemyIndex, 1); // ลบศัตรูที่โดนยิง
-                    score += 10; // เพิ่มคะแนนเมื่อชนะศัตรู
-                    money += 10; // ได้รับเงินเมื่อชนะศัตรู
+                if (!enemy.isBoss) {
+                    updateMissionProgress(); // เพิ่มความคืบหน้าภารกิจ
                 }
-                bullets.splice(bulletIndex, 1); // ลบกระสุนที่ยิงโดน
+
+                // ลบศัตรูที่โดนยิง
+                enemies.splice(enemyIndex, 1);
+                // ลบกระสุนที่ยิงโดน
+                bullets.splice(bulletIndex, 1);
+                // เพิ่มคะแนนเมื่อทำลายศัตรู
+                score += 10;
             }
         });
     });
