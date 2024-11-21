@@ -63,6 +63,7 @@
         <button class="control-button" id="leftButton">Left</button>
         <button class="control-button" id="rightButton">Right</button>
         <button class="control-button" id="shootButton">Shoot</button>
+        <button id="upgradeButton">Upgrade Ship</button>
     </div>
     <script>
         const canvas = document.getElementById("gameCanvas");
@@ -90,7 +91,7 @@
         const bulletSpeed = 7;
 
         let isBossActive = false;
-        let bossLives = 5; // กำหนดจำนวนชีวิตของบอส
+        let bossLives = 20; // กำหนดจำนวนชีวิตของบอส
 
         const enemies = [];
         const enemyWidth = 30;
@@ -166,11 +167,86 @@
         document.getElementById("rightButton").addEventListener("touchend", () => isRightPressed = false);
         document.getElementById("shootButton").addEventListener("touchstart", () => isSpacePressed = true);
         document.getElementById("shootButton").addEventListener("touchend", () => isSpacePressed = false);
+        document.getElementById("upgradeButton").addEventListener("click", showUpgradeMenu);
 
         function drawShip() {
             ctx.fillStyle = "blue";
             ctx.fillRect(shipX, shipY, shipWidth, shipHeight);
         }
+
+        let money = 0; // จำนวนเงินที่ผู้เล่นมี
+
+function showUpgradeMenu() {
+    let upgradeMessage = "Upgrade Ship\n";
+    upgradeMessage += "1. Increase Damage - Cost: 50\n";
+    upgradeMessage += "2. Increase Speed - Cost: 30\n";
+    upgradeMessage += "3. Increase Lives - Cost: 100\n";
+    upgradeMessage += "Enter the number of the upgrade you wish to purchase or cancel to exit.";
+    const userChoice = prompt(upgradeMessage);
+
+    if (userChoice) {
+        if (userChoice === "1" && money >= 50) {
+            money -= 50;
+            bulletSpeed += 2; // เพิ่มความเร็วกระสุน (เพิ่มดาเมจ)
+            alert("Damage increased!");
+        } else if (userChoice === "2" && money >= 30) {
+            money -= 30;
+            shipSpeed += 1; // เพิ่มความเร็วของยาน
+            alert("Speed increased!");
+        } else if (userChoice === "3" && money >= 100) {
+            money -= 100;
+            lives++; // เพิ่มจำนวนชีวิต
+            alert("Lives increased!");
+        } else {
+            alert("Not enough money or invalid choice.");
+        }
+    }
+}
+
+let missionProgress = 0;
+let missionTarget = 10; // จำนวนเป้าหมายของภารกิจเริ่มต้น
+
+// ฟังก์ชันอัปเดตความคืบหน้าของภารกิจ
+let missionProgress = 0; // ความคืบหน้าของภารกิจ
+let missionTarget = 10; // เป้าหมายภารกิจ
+
+// ฟังก์ชันอัปเดตความคืบหน้าของภารกิจ
+function updateMissionProgress() {
+    missionProgress++; // เพิ่มค่าความคืบหน้าของภารกิจ
+    checkMissionCompletion(); // ตรวจสอบว่าภารกิจสำเร็จหรือไม่
+}
+
+// ฟังก์ชันตรวจสอบการสำเร็จของภารกิจ
+function checkMissionCompletion() {
+    if (missionProgress >= missionTarget) {
+        alert("Mission Complete! Bonus Score!");
+        score += 100; // ให้รางวัลเมื่อสำเร็จ
+        missionTarget += 5; // เพิ่มความท้าทายสำหรับภารกิจถัดไป
+        missionProgress = 0; // รีเซ็ตความคืบหน้า
+    }
+}
+
+// การจัดการเมื่อกระสุนชนศัตรู
+bullets.forEach((bullet, bulletIndex) => {
+    enemies.forEach((enemy, enemyIndex) => {
+        if (
+            bullet.x < enemy.x + enemyWidth &&
+            bullet.x + bulletWidth > enemy.x &&
+            bullet.y < enemy.y + enemyHeight &&
+            bullet.y + bulletHeight > enemy.y
+        ) {
+            if (!enemy.isBoss) {
+                updateMissionProgress(); // เพิ่มความคืบหน้าภารกิจ
+            }
+            // ลบศัตรูที่โดนยิง
+            enemies.splice(enemyIndex, 1);
+            // ลบกระสุนที่ยิงโดน
+            bullets.splice(bulletIndex, 1);
+            // เพิ่มคะแนนเมื่อทำลายศัตรู
+            score += 10;
+        }
+    });
+});
 
         function drawBullets() {
             ctx.fillStyle = "red";
@@ -227,16 +303,17 @@ function updateEnemyBullets() {
             bullet.y + enemyBulletHeight > shipY
         ) {
             lives--; // ลดจำนวนชีวิต
-            enemyBullets.splice(index, 1);
-            if (lives <= 0) {
-                stopGame();
+            if (lives < 0) {
+                lives = 0; // ป้องกันไม่ให้ชีวิตต่ำกว่า 0
+                stopGame(); // หยุดเกมเมื่อชีวิตหมด
             }
+            enemyBullets.splice(index, 1);
         }
     });
 }
 
-        function spawnBoss() {
-    if (level === 5 && !isBossActive) {
+function spawnBoss() {
+    if (!isBossActive && score >= 1000) { // บอสจะปรากฏเมื่อผู้เล่นได้คะแนนถึง 100 (สามารถปรับแต่งได้ตามต้องการ)
         isBossActive = true;
         enemies.push({
             x: canvas.width / 2 - enemyWidth / 2,
@@ -247,9 +324,36 @@ function updateEnemyBullets() {
     }
 }
 
-        function spawnEnemy() {
+const enemyTypes = [
+    { type: "basic", speed: 2, reward: 10 },
+    { type: "fast", speed: 4, reward: 15 },
+    { type: "strong", speed: 1, reward: 20, health: 3 }
+];
+
+function spawnEnemy() {
     const x = Math.random() * (canvas.width - enemyWidth);
-    enemies.push({ x: x, y: 0 });
+    const enemyType = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+    enemies.push({ x: x, y: 0, type: enemyType.type, speed: enemyType.speed, health: enemyType.health || 1 });
+
+    if (enemy.health > 1) {
+    enemy.health--;
+} else {
+    enemies.splice(enemyIndex, 1);
+    score += enemy.type.reward;
+    money += enemy.type.reward;
+}
+}
+        
+function drawBossHealthBar() {
+    if (isBossActive) {
+        ctx.fillStyle = "red";
+        ctx.fillRect(10, 10, bossLives * 10, 10);
+        ctx.strokeStyle = "white";
+        ctx.strokeRect(10, 10, bossLives * 10, 10);
+        ctx.fillStyle = "white";
+        ctx.font = "12px Arial";
+        ctx.fillText("Boss Health", 10, 25);
+    }
 }
 
 function spawnPowerUp() {
@@ -270,26 +374,60 @@ setInterval(spawnPowerUp, powerUpSpawnInterval);
 
         function updateEnemies() {
     enemies.forEach((enemy, index) => {
-        if (enemy.isBoss) {
-            // การเคลื่อนที่ของบอส
-            enemy.y += 0.5; // บอสเคลื่อนที่ช้ากว่าศัตรูทั่วไป
-        } else {
-            enemy.y += enemySpeed;
-        }
+        enemy.y += enemy.speed; // ใช้ความเร็วจาก enemyType
 
-        // ลบศัตรูที่ออกนอกขอบจอ
-        if (enemy.y > canvas.height) {
-            enemies.splice(index, 1);
+        if (enemy.health > 1) {
+            enemy.health--; // ลดพลังชีวิต
+        } else if (enemy.y > canvas.height) {
+            enemies.splice(index, 1); // ลบศัตรูที่ออกนอกจอ
         }
     });
 }
 
 function updatePowerUps() {
     powerUps.forEach((powerUp, index) => {
+        // อัปเดตตำแหน่งของ Power-Up
         powerUp.y += powerUpSpeed;
 
-        // ลบ power-ups ที่ออกนอกขอบจอ
+        // ลบ Power-Up ที่ออกนอกจอ
         if (powerUp.y > canvas.height) {
+            powerUps.splice(index, 1);
+            return; // ออกจากลูปนี้ทันที
+        }
+
+        // ตรวจสอบการชนกับยานของผู้เล่น
+        if (
+            shipX < powerUp.x + powerUpWidth &&
+            shipX + shipWidth > powerUp.x &&
+            shipY < powerUp.y + powerUpHeight &&
+            shipY + shipHeight > powerUp.y
+        ) {
+            // ตรวจสอบประเภทของ Power-Up
+            switch (powerUp.type) {
+                case "doubleBullets":
+                    alert("Double Bullets activated!");
+                    bulletSpeed += 5; // เพิ่มความเร็วกระสุน
+                    setTimeout(() => {
+                        bulletSpeed -= 5; // ลดกลับหลัง 10 วินาที
+                    }, 10000);
+                    break;
+
+                case "shield":
+                    alert("Shield activated! You are now protected.");
+                    break;
+
+                case "repair":
+                    alert("Repair collected! Extra life added.");
+                    lives++;
+                    break;
+
+                // เพิ่มประเภทอื่น ๆ ตามต้องการ
+                default:
+                    console.log("Unknown Power-Up type:", powerUp.type);
+                    break;
+            }
+
+            // ลบ Power-Up ที่ผู้เล่นเก็บไปแล้ว
             powerUps.splice(index, 1);
         }
     });
@@ -367,16 +505,31 @@ function updateBullets() {
                     if (enemy.bossLives <= 0) {
                         enemies.splice(enemyIndex, 1);
                         isBossActive = false; // บอสถูกทำลาย
-                        score += 50; // คะแนนพิเศษเมื่อชนะบอส
+                        score += 50; // เพิ่มคะแนนเมื่อชนะบอส
+                        money += 200; // ได้รับเงินเมื่อชนะบอส
+                        level++;
+                        changeScene();
                     }
                 } else {
                     enemies.splice(enemyIndex, 1); // ลบศัตรูที่โดนยิง
-                    score += 10; // เพิ่มคะแนน
+                    score += 10; // เพิ่มคะแนนเมื่อชนะศัตรู
+                    money += 10; // ได้รับเงินเมื่อชนะศัตรู
                 }
                 bullets.splice(bulletIndex, 1); // ลบกระสุนที่ยิงโดน
             }
         });
     });
+}
+
+        function changeScene() {
+    if (level === 2) {
+        // เปลี่ยนสีพื้นหลังเพื่อเป็นด่านที่ 2
+        canvas.style.backgroundColor = '#333'; 
+    } else if (level === 3) {
+        // เปลี่ยนสีพื้นหลังเพื่อเป็นด่านที่ 3
+        canvas.style.backgroundColor = '#555';
+    }
+    // สามารถปรับเปลี่ยนเพิ่มเติมได้ตามจำนวนด่านที่ต้องการ
 }
 
         function drawExplosions() {
@@ -416,6 +569,17 @@ function updateBullets() {
                 ctx.fillText(storyLines[currentStoryIndex], 20, canvas.height / 2);
             }
         }
+
+        function updateHighScore() {
+    const storedHighScore = parseInt(localStorage.getItem("highScore")) || 0;
+    if (score > storedHighScore) {
+        localStorage.setItem("highScore", score);
+        highScore = score;
+        alert("New High Score: " + highScore);
+    } else {
+        highScore = storedHighScore;
+    }
+}
 
         function updateBullets() {
     bullets.forEach((bullet, bulletIndex) => {
@@ -465,37 +629,56 @@ function updateBullets() {
         }
 
         function checkSupportItemCollection() {
-            supportItems.forEach((item, index) => {
-                if (shipX < item.x + supportItemWidth && shipX + shipWidth > item.x && shipY < item.y + supportItemHeight && shipY + shipHeight > item.y) {
-                    if (item.type === "shield") {
-                        alert("Shield activated! You are protected.");
-                    } else if (item.type === "repair") {
-                        lives++;
-                        alert("Repair collected! Extra life added.");
-                    } else if (item.type === "speedBoost") {
-                        shipSpeed += 2;
-                        setTimeout(() => { shipSpeed -= 2; }, 5000);
-                        alert("Speed Boost activated!");
-                    }
-                    supportItems.splice(index, 1);
-                }
-            });
+    supportItems.forEach((item, index) => {
+        if (shipX < item.x + supportItemWidth && shipX + shipWidth > item.x && shipY < item.y + supportItemHeight && shipY + shipHeight > item.y) {
+            if (item.type === "shield") {
+                alert("Shield activated! You are protected.");
+            } else if (item.type === "repair") {
+                lives++;
+                alert("Repair collected! Extra life added.");
+            } else if (item.type === "speedBoost") {
+                shipSpeed += 3; // เพิ่มความเร็ว
+                setTimeout(() => { 
+                    shipSpeed -= 3; // ลดความเร็วกลับคืนหลังจากผ่านไป 5 วินาที
+                }, 5000);
+                alert("Speed Boost activated for 5 seconds!");
+            }
+            supportItems.splice(index, 1);
         }
+    });
+}
+        
+function loadAchievements() {
+    const savedAchievements = JSON.parse(localStorage.getItem("achievements"));
+    if (savedAchievements) {
+        achievements.forEach((achievement, index) => {
+            achievements[index].achieved = savedAchievements[index].achieved;
+            achievements[index].count = savedAchievements[index].count;
+        });
+    }
+}
 
-        function checkAchievements() {
-            if (score >= 10 && !achievements[0].achieved) {
-                achievements[0].achieved = true;
-                alert("Achievement Unlocked: " + achievements[0].name);
-            }
-            if (achievements[1].count >= achievements[1].target && !achievements[1].achieved) {
-                achievements[1].achieved = true;
-                alert("Achievement Unlocked: " + achievements[1].name);
-            }
-            if (!isBossActive && bossLives <= 0 && !achievements[2].achieved) {
-                achievements[2].achieved = true;
-                alert("Achievement Unlocked: " + achievements[2].name);
-            }
-        }
+function saveAchievements() {
+    localStorage.setItem("achievements", JSON.stringify(achievements));
+}
+
+function checkAchievements() {
+    if (score >= 10 && !achievements[0].achieved) {
+        achievements[0].achieved = true;
+        alert("Achievement Unlocked: " + achievements[0].name);
+        saveAchievements();
+    }
+    if (achievements[1].count >= achievements[1].target && !achievements[1].achieved) {
+        achievements[1].achieved = true;
+        alert("Achievement Unlocked: " + achievements[1].name);
+        saveAchievements();
+    }
+    if (!isBossActive && bossLives <= 0 && !achievements[2].achieved) {
+        achievements[2].achieved = true;
+        alert("Achievement Unlocked: " + achievements[2].name);
+        saveAchievements();
+    }
+}
 
         function showStore() {
             let storeMessage = "Welcome to the Store!\n";
@@ -532,6 +715,11 @@ function updateBullets() {
             });
         }
 
+        function changeScene() {
+    const scenes = ["#333", "#555", "#777", "#999"];
+    canvas.style.backgroundColor = scenes[level % scenes.length];
+}
+
         function regenEnergy() {
             if (energy < maxEnergy) {
                 energy += energyRegenRate;
@@ -549,7 +737,10 @@ function gameLoop() {
     updateSupportItems();
     if (showStory) {
         displayStory();
-    } else {
+    } 
+    
+    if (isBossActive) drawBossHealthBar();
+    else {
         spawnBoss(); // สร้างบอสเมื่อถึงเลเวลที่กำหนด
         drawShip();
         drawBullets();
@@ -574,9 +765,9 @@ function gameLoop() {
 }
 
 
-        // ฟังก์ชันเพื่อหยุดเกมในกรณีที่ผู้เล่นแพ้
 function stopGame() {
     isGameRunning = false;
+    updateHighScore();
     alert("Game Over! Your score: " + score);
 }
 
