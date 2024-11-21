@@ -331,15 +331,13 @@ const enemyTypes = [
 function spawnEnemy() {
     const x = Math.random() * (canvas.width - enemyWidth);
     const enemyType = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
-    enemies.push({ x: x, y: 0, type: enemyType.type, speed: enemyType.speed, health: enemyType.health || 1 });
-
-    if (enemy.health > 1) {
-    enemy.health--;
-} else {
-    enemies.splice(enemyIndex, 1);
-    score += enemy.type.reward;
-    money += enemy.type.reward;
-}
+    enemies.push({ 
+        x: x, 
+        y: 0, 
+        type: enemyType.type, 
+        speed: enemyType.speed, 
+        health: enemyType.health || 1 
+    });
 }
         
 function drawBossHealthBar() {
