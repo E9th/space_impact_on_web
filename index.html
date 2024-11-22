@@ -66,6 +66,47 @@
         <button id="upgradeButton">Upgrade Ship</button>
     </div>
     <script>
+
+        const images = {
+    playerShip: new Image(),
+    enemyShips: [],
+    bullet: new Image(),
+    powerUps: {
+        armor: new Image(),
+        repair: new Image(),
+        speed: new Image()
+    },
+    explosions: [],
+    bossShips: [],
+    background: new Image()
+};
+
+// กำหนดเส้นทางของภาพ
+images.playerShip.src = "assets/images/Player_Ship.png";
+for (let i = 1; i <= 5; i++) {
+    const enemyImage = new Image();
+    enemyImage.src = `assets/images/Enemy_Ships${i}.png`;
+    images.enemyShips.push(enemyImage);
+}
+        
+images.bulletSpecial = new Image();
+images.bulletSpecial.src = "assets/images/Bullets_Special.png";
+images.bullet.src = "assets/images/Bullets.png";
+images.powerUps.armor.src = "assets/images/power-up_armor.png";
+images.powerUps.repair.src = "assets/images/power-up_repair.png";
+images.powerUps.speed.src = "assets/images/power-up_speed.png";
+for (let i = 1; i <= 3; i++) {
+    const explosionImage = new Image();
+    explosionImage.src = `assets/images/Explosion_enemy${i}.png`;
+    images.explosions.push(explosionImage);
+}
+for (let i = 1; i <= 5; i++) {
+    const bossImage = new Image();
+    bossImage.src = `assets/images/Boss_Ship${i}.png`;
+    images.bossShips.push(bossImage);
+}
+images.background.src = "assets/images/Background_Animation1.png";
+
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
@@ -170,11 +211,10 @@
         document.getElementById("shootButton").addEventListener("touchend", () => isSpacePressed = false);
         document.getElementById("upgradeButton").addEventListener("click", showUpgradeMenu);
 
-        function drawShip() {
-            ctx.fillStyle = "blue";
-            ctx.fillRect(shipX, shipY, shipWidth, shipHeight);
-        }
-
+function drawShip() {
+    ctx.drawImage(images.playerShip, shipX, shipY, shipWidth, shipHeight);
+}
+        
         let money = 0; // จำนวนเงินที่ผู้เล่นมี
 
 function showUpgradeMenu() {
@@ -244,11 +284,12 @@ bullets.forEach((bullet, bulletIndex) => {
 function drawBullets() {
     bullets.forEach((bullet) => {
         if (bullet.special) {
-            ctx.fillStyle = "cyan"; // สีของกระสุนพิเศษ
+            // ใช้ภาพกระสุนพิเศษ
+            ctx.drawImage(images.bulletSpecial, bullet.x, bullet.y, bulletWidth, bulletHeight);
         } else {
-            ctx.fillStyle = "red"; // สีของกระสุนปกติ
+            // ใช้ภาพกระสุนปกติ
+            ctx.drawImage(images.bullet, bullet.x, bullet.y, bulletWidth, bulletHeight);
         }
-        ctx.fillRect(bullet.x, bullet.y, bulletWidth, bulletHeight);
     });
 }
         
@@ -266,11 +307,11 @@ function drawBullets() {
 }
 
         function drawEnemies() {
-            ctx.fillStyle = "green";
-            enemies.forEach((enemy) => {
-                ctx.fillRect(enemy.x, enemy.y, enemyWidth, enemyHeight);
-            });
-        }
+    enemies.forEach((enemy) => {
+        const enemyImage = images.enemyShips[enemy.type % images.enemyShips.length];
+        ctx.drawImage(enemyImage, enemy.x, enemy.y, enemyWidth, enemyHeight);
+    });
+}
 
         const enemyBullets = [];
 const enemyBulletWidth = 5;
@@ -361,13 +402,40 @@ const enemyTypes = [
 function spawnEnemy() {
     const x = Math.random() * (canvas.width - enemyWidth);
     const enemyType = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
-    enemies.push({ 
-        x: x, 
-        y: 0, 
-        type: enemyType.type, 
-        speed: enemyType.speed, 
-        health: enemyType.health || 1 
+
+    enemies.push({
+        x: x,
+        y: 0,
+        type: Math.floor(Math.random() * images.enemyShips.length), // สุ่ม type ของศัตรู
+        speed: enemyType.speed,
+        health: enemyType.health || 1
     });
+}
+
+let bossSpeedX = 2; // ความเร็วการเคลื่อนที่ในแนวนอน
+let bossSpeedY = 0.5; // ความเร็วการเคลื่อนที่ในแนวตั้ง
+
+function updateBossPosition() {
+    // บอสเคลื่อนที่ในแนวนอน
+    bossX += bossSpeedX;
+
+    // บอสเคลื่อนที่ในแนวตั้ง (ถ้าต้องการ)
+    bossY += bossSpeedY;
+
+    // เปลี่ยนทิศทางเมื่อชนขอบจอ
+    if (bossX <= 0 || bossX + bossWidth >= canvas.width) {
+        bossSpeedX = -bossSpeedX;
+    }
+    if (bossY <= 50 || bossY + bossHeight >= canvas.height / 2) {
+        bossSpeedY = -bossSpeedY;
+    }
+}
+
+function drawBoss() {
+    if (isBossActive) {
+        const bossImage = images.bossShips[level % images.bossShips.length];
+        ctx.drawImage(bossImage, bossX, bossY, bossWidth, bossHeight);
+    }
 }
         
 function drawBossHealthBar() {
@@ -382,6 +450,17 @@ function drawBossHealthBar() {
     }
 }
 
+        let backgroundOffset = 0;
+
+function drawBackground() {
+    ctx.drawImage(images.background, 0, backgroundOffset, canvas.width, canvas.height);
+    ctx.drawImage(images.background, 0, backgroundOffset - canvas.height, canvas.width, canvas.height);
+    backgroundOffset += 2; // ความเร็วของฉากหลัง
+    if (backgroundOffset >= canvas.height) {
+        backgroundOffset = 0;
+    }
+}
+
 function spawnPowerUp() {
     const x = Math.random() * (canvas.width - powerUpWidth);
     powerUps.push({ x: x, y: 0 });
@@ -392,11 +471,27 @@ setInterval(spawnEnemy, spawnInterval);
 setInterval(spawnPowerUp, powerUpSpawnInterval);
 
         function drawPowerUps() {
-            ctx.fillStyle = "yellow";
-            powerUps.forEach((powerUp) => {
-                ctx.fillRect(powerUp.x, powerUp.y, powerUpWidth, powerUpHeight);
-            });
+    powerUps.forEach((powerUp) => {
+        let powerUpImage;
+        switch (powerUp.type) {
+            case "armor":
+                powerUpImage = images.powerUps.armor;
+                break;
+            case "repair":
+                powerUpImage = images.powerUps.repair;
+                break;
+            case "speed":
+                powerUpImage = images.powerUps.speed;
+                break;
+            default:
+                powerUpImage = null;
         }
+
+        if (powerUpImage) {
+            ctx.drawImage(powerUpImage, powerUp.x, powerUp.y, powerUpWidth, powerUpHeight);
+        }
+    });
+}
 
         function updateEnemies() {
     enemies.forEach((enemy, index) => {
@@ -448,14 +543,13 @@ function updatePowerUps() {
                     break;
 
                 case "fasterShooting":
-    showNotification("Faster Shooting activated!");
-    shootInterval = 200;
-    setTimeout(() => {
-        shootInterval = 500; // คืนค่าปกติ
-    }, 10000);
-    break;
+                    showNotification("Faster Shooting activated!");
+                    shootInterval = 200;
+                    setTimeout(() => {
+                        shootInterval = 500; // คืนค่าปกติ
+                    }, 10000);
+                    break;
 
-                // เพิ่มประเภทอื่น ๆ ตามต้องการ
                 default:
                     console.log("Unknown Power-Up type:", powerUp.type);
                     break;
@@ -514,7 +608,8 @@ function shootBullet() {
     if (isSpacePressed && currentTime - lastShootTime > shootInterval) {
         bullets.push({
             x: shipX + shipWidth / 2 - bulletWidth / 2,
-            y: shipY - bulletHeight
+            y: shipY - bulletHeight,
+            special: false // กระสุนปกติ
         });
         lastShootTime = currentTime;
     }
@@ -583,16 +678,17 @@ function updateBullets() {
     // สามารถปรับเปลี่ยนเพิ่มเติมได้ตามจำนวนด่านที่ต้องการ
 }
 
-        function drawExplosions() {
-            ctx.fillStyle = "orange";
-            explosions.forEach((explosion, index) => {
-                ctx.beginPath();
-                ctx.arc(explosion.x, explosion.y, explosion.frame, 0, Math.PI * 2);
-                ctx.fill();
-                explosion.frame += 1;
-                if (explosion.frame > 15) explosions.splice(index, 1);
-            });
-        }
+        function addExplosion(x, y) {
+    explosions.push({ x: x, y: y, frame: 0 }); // เพิ่ม frame
+}
+
+function drawExplosions() {
+    explosions.forEach((explosion) => {
+        const frameIndex = Math.floor(explosion.frame % images.explosions.length);
+        ctx.drawImage(images.explosions[frameIndex], explosion.x, explosion.y, 40, 40);
+        explosion.frame += 0.2; // เลื่อนไปยัง frame ถัดไป
+    });
+}
 
         function drawScoreAndLives() {
             ctx.fillStyle = "white";
@@ -715,12 +811,15 @@ function saveAchievements() {
 
         function shootSpecialBullet() {
     if (energy >= energyUsage) {
-        energy -= energyUsage; // ลด Energy
+        energy -= energyUsage; // ลดค่าพลังงาน
+
         bullets.push({
             x: shipX + shipWidth / 2 - bulletWidth / 2,
             y: shipY - bulletHeight,
-            special: true
+            special: true // กระสุนพิเศษ
         });
+
+        showNotification("Special Bullet Fired!");
     } else {
         showNotification("Not enough energy!");
     }
@@ -814,11 +913,15 @@ function gameLoop() {
     updateSupportItems();
     if (showStory) {
         displayStory();
-    } 
-    
-    if (isBossActive) drawBossHealthBar();
-    else {
-        spawnBoss(); // สร้างบอสเมื่อถึงเลเวลที่กำหนด
+    }
+
+    if (isBossActive) {
+        drawBossHealthBar();
+        drawBoss();
+        updateBossPosition(); // เรียกฟังก์ชันอัปเดตตำแหน่งบอส
+    } else {
+        spawnBoss();
+        drawBackground();
         drawShip();
         drawBullets();
         drawEnemies();
@@ -835,13 +938,12 @@ function gameLoop() {
         shootBullet();
         enemyShootBullet();
         checkSupportItemCollection();
-        regenEnergy();
-        checkAchievements();
-        regenEnergy();
-
+        regenEnergy(); // คงไว้แค่จุดนี้
     }
+
     requestAnimationFrame(gameLoop);
 }
+
 
 
 let isGameOver = false;
