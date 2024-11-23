@@ -67,26 +67,119 @@
     </div>
     <script>
 
-        const images = {
+        // ขนาดภาพ
+const images = {
     playerShip: new Image(),
     enemyShips: [],
     bullet: new Image(),
     powerUps: {
         armor: new Image(),
         repair: new Image(),
-        speed: new Image()
+        speed: new Image(),
     },
     explosions: [],
     bossShips: [],
-    background: new Image()
+    background: new Image(),
 };
 
 // กำหนดเส้นทางของภาพ
 images.playerShip.src = "assets/images/Player_Ship.png";
+images.playerShip.width = 30;
+images.playerShip.height = 60;
+
 for (let i = 1; i <= 5; i++) {
     const enemyImage = new Image();
     enemyImage.src = `assets/images/Enemy_Ships${i}.png`;
+    enemyImage.width = i >= 3 ? 60 : 30; // ปรับขนาด 60px เฉพาะภาพ 3-5
+    enemyImage.height = i >= 3 ? 40 : 20;
     images.enemyShips.push(enemyImage);
+}
+
+// Power-Up Repair
+let isShieldActive = false;
+let shieldDuration = 10000; // 10 วินาที
+
+function activateShield() {
+    isShieldActive = true;
+
+    // เปลี่ยนสีของยาน
+    const originalFilter = ctx.filter;
+    ctx.filter = "brightness(1.5) hue-rotate(90deg)";
+
+    setTimeout(() => {
+        isShieldActive = false;
+        ctx.filter = originalFilter; // คืนค่าสีเดิม
+    }, shieldDuration);
+}
+
+function updatePowerUps() {
+    powerUps.forEach((powerUp, index) => {
+        powerUp.y += powerUpSpeed;
+
+        if (
+            shipX < powerUp.x + powerUpWidth &&
+            shipX + shipWidth > powerUp.x &&
+            shipY < powerUp.y + powerUpHeight &&
+            shipY + shipHeight > powerUp.y
+        ) {
+            switch (powerUp.type) {
+                case "repair":
+                    showNotification("Shield activated!");
+                    activateShield();
+                    break;
+                // เพิ่ม case อื่นๆ หากต้องการ
+            }
+            powerUps.splice(index, 1);
+        }
+    });
+}
+
+// การป้องกันดาเมจ
+function handleDamage() {
+    if (isShieldActive) {
+        isShieldActive = false; // โล่ถูกใช้ครั้งเดียว
+    } else {
+        lives--;
+        if (lives <= 0) stopGame();
+    }
+}
+
+// เสียง
+const sounds = {
+    bossAppear: new Audio("assets/sounds/boss_appear.mp3"),
+    enemyBullet: new Audio("assets/sounds/enemy_bullet.mp3"),
+    bossBullet: new Audio("assets/sounds/boss_bullet.mp3"),
+    explosion: new Audio("assets/sounds/explosion.mp3"),
+    powerUp: new Audio("assets/sounds/power_up.mp3"),
+};
+
+function playSound(soundKey) {
+    if (sounds[soundKey]) {
+        sounds[soundKey].play();
+    }
+}
+
+// ตัวอย่างการเล่นเสียง
+function spawnBoss() {
+    if (!isBossActive && score >= 300) {
+        isBossActive = true;
+        playSound("bossAppear");
+        enemies.push({
+            x: canvas.width / 2 - enemyWidth / 2,
+            y: 50,
+            isBoss: true,
+            bossLives: bossLives,
+        });
+    }
+}
+
+function spawnPowerUp() {
+    const x = Math.random() * (canvas.width - powerUpWidth);
+    const types = ["repair", "speed"];
+    const type = types[Math.floor(Math.random() * types.length)];
+
+    powerUps.push({ x, y: 0, type });
+    playSound("powerUp");
 }
         
 images.bulletSpecial = new Image();
@@ -110,9 +203,8 @@ images.background.src = "assets/images/Background_Animation1.png";
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // ตัวแปรหลักของเกม
-        const shipWidth = 40;
-        const shipHeight = 20;
+        const shipWidth = 30;
+        const shipHeight = 60;
         let shipX = canvas.width / 2 - shipWidth / 2;
         let shipY = canvas.height - shipHeight - 10;
         let shipSpeed = 5;
@@ -135,8 +227,8 @@ images.background.src = "assets/images/Background_Animation1.png";
         let bossLives = 20; // กำหนดจำนวนชีวิตของบอส
 
         const enemies = [];
-        const enemyWidth = 30;
-        const enemyHeight = 20;
+        const enemyWidth = 60;
+        const enemyHeight = 40;
         const spawnIntervalBase = 1500;
         let spawnInterval = spawnIntervalBase;
 
@@ -463,8 +555,11 @@ function drawBackground() {
 
 function spawnPowerUp() {
     const x = Math.random() * (canvas.width - powerUpWidth);
-    powerUps.push({ x: x, y: 0 });
+    const types = ["armor", "repair", "speed"]; // ประเภทของ Power-Up
+    const type = types[Math.floor(Math.random() * types.length)]; // สุ่มประเภท
+    powerUps.push({ x: x, y: 0, type: type });
 }
+
 
 // เริ่มต้นการเกิดศัตรูและ power-ups
 setInterval(spawnEnemy, spawnInterval);
@@ -603,15 +698,34 @@ const shootInterval = 100; // สามารถยิงกระสุนไ�
     }
 }
 
+const shootSound = new Audio("assets/sounds/shoot.mp3");
+const specialShootSound = new Audio("assets/sounds/special_shoot.mp3");
+
 function shootBullet() {
     const currentTime = Date.now();
     if (isSpacePressed && currentTime - lastShootTime > shootInterval) {
         bullets.push({
             x: shipX + shipWidth / 2 - bulletWidth / 2,
             y: shipY - bulletHeight,
-            special: false // กระสุนปกติ
+            special: false
         });
+        shootSound.play(); // เพิ่มเสียงตอนยิง
         lastShootTime = currentTime;
+    }
+}
+
+function shootSpecialBullet() {
+    if (energy >= energyUsage) {
+        energy -= energyUsage;
+        bullets.push({
+            x: shipX + shipWidth / 2 - bulletWidth / 2,
+            y: shipY - bulletHeight,
+            special: true
+        });
+        specialShootSound.play(); // เพิ่มเสียงตอนยิงกระสุนพิเศษ
+        showNotification("Special Bullet Fired!");
+    } else {
+        showNotification("Not enough energy!");
     }
 }
 
@@ -632,39 +746,36 @@ function updateShip() {
 
 function updateBullets() {
     bullets.forEach((bullet, bulletIndex) => {
-    bullet.y -= bulletSpeed;
+        bullet.y -= bulletSpeed;
 
-    // ลบกระสุนที่ออกนอกจอ
-    if (bullet.y + bulletHeight < 0) {
-        bullets.splice(bulletIndex, 1);
-    }
-
-    // ตรวจสอบว่ากระสุนชนศัตรูหรือไม่
-    enemies.forEach((enemy, enemyIndex) => {
-        if (
-            bullet.x < enemy.x + enemyWidth &&
-            bullet.x + bulletWidth > enemy.x &&
-            bullet.y < enemy.y + enemyHeight &&
-            bullet.y + bulletHeight > enemy.y
-        ) {
-            if (bullet.special) {
-                // กระสุนพิเศษทำความเสียหายเพิ่ม
-                enemy.health -= 3; 
-            } else {
-                enemy.health -= 1; 
-            }
-
-            // ลบกระสุนที่ชนศัตรู
+        if (bullet.y + bulletHeight < 0) {
             bullets.splice(bulletIndex, 1);
-
-            // ลบศัตรูหากพลังชีวิตหมด
-            if (enemy.health <= 0) {
-                enemies.splice(enemyIndex, 1);
-                score += 10; // เพิ่มคะแนน
-            }
         }
+
+        enemies.forEach((enemy, enemyIndex) => {
+            if (
+                bullet.x < enemy.x + enemyWidth &&
+                bullet.x + bulletWidth > enemy.x &&
+                bullet.y < enemy.y + enemyHeight &&
+                bullet.y + bulletHeight > enemy.y
+            ) {
+                if (bullet.special) {
+                    enemy.health -= 3;
+                } else {
+                    enemy.health -= 1;
+                }
+
+                bullets.splice(bulletIndex, 1);
+
+                if (enemy.health <= 0) {
+                    enemies.splice(enemyIndex, 1);
+                    score += 10; 
+                    money += 5; // เพิ่มเงินให้กับผู้เล่นเมื่อทำลายศัตรู
+                    drawScoreEffect(10); // แสดงเอฟเฟกต์การเพิ่มคะแนน
+                }
+            }
+        });
     });
-});
 }
 
         function changeScene() {
@@ -683,12 +794,33 @@ function updateBullets() {
 }
 
 function drawExplosions() {
-    explosions.forEach((explosion) => {
+    explosions.forEach((explosion, index) => {
         const frameIndex = Math.floor(explosion.frame % images.explosions.length);
         ctx.drawImage(images.explosions[frameIndex], explosion.x, explosion.y, 40, 40);
         explosion.frame += 0.2; // เลื่อนไปยัง frame ถัดไป
+
+        if (Math.floor(explosion.frame) >= images.explosions.length) {
+            explosions.splice(index, 1); // ลบการระเบิดเมื่อเฟรมครบ
+        }
     });
 }
+        
+        function drawScoreEffect(points) {
+    const effect = document.createElement("div");
+    effect.textContent = `+${points}`;
+    effect.style.position = "absolute";
+    effect.style.color = "gold";
+    effect.style.fontSize = "20px";
+    effect.style.left = "10px";
+    effect.style.top = "50px";
+    document.body.appendChild(effect);
+
+    setTimeout(() => effect.remove(), 1000); // ลบเอฟเฟกต์หลัง 1 วินาที
+}
+
+// เรียกใช้ตอนเพิ่มคะแนน
+score += 10;
+drawScoreEffect(10);
 
         function drawScoreAndLives() {
             ctx.fillStyle = "white";
@@ -775,6 +907,25 @@ function drawExplosions() {
             supportItems.push({ x: x, y: 0, type: type });
         }
 
+        let imagesLoaded = 0;
+const totalImages = Object.keys(images).length + images.enemyShips.length + images.bossShips.length + images.explosions.length;
+
+function checkImagesLoaded() {
+    imagesLoaded++;
+    if (imagesLoaded === totalImages) {
+        gameLoop(); // เริ่มเกมหลังโหลดภาพเสร็จ
+    }
+}
+
+// ผูก Event Listener
+Object.values(images).forEach((image) => {
+    if (image instanceof Image) {
+        image.onload = checkImagesLoaded;
+    } else if (Array.isArray(image)) {
+        image.forEach((img) => img.onload = checkImagesLoaded);
+    }
+});
+
         function checkSupportItemCollection() {
     supportItems.forEach((item, index) => {
         if (shipX < item.x + supportItemWidth && shipX + shipWidth > item.x && shipY < item.y + supportItemHeight && shipY + shipHeight > item.y) {
@@ -807,22 +958,6 @@ function loadAchievements() {
 
 function saveAchievements() {
     localStorage.setItem("achievements", JSON.stringify(achievements));
-}
-
-        function shootSpecialBullet() {
-    if (energy >= energyUsage) {
-        energy -= energyUsage; // ลดค่าพลังงาน
-
-        bullets.push({
-            x: shipX + shipWidth / 2 - bulletWidth / 2,
-            y: shipY - bulletHeight,
-            special: true // กระสุนพิเศษ
-        });
-
-        showNotification("Special Bullet Fired!");
-    } else {
-        showNotification("Not enough energy!");
-    }
 }
 
 // ฟื้นฟู Energy ใน `gameLoop`
@@ -906,6 +1041,8 @@ function checkAchievements() {
         let isGameRunning = true;
 
 function gameLoop() {
+    if (!isGameRunning) return; // ออกจาก game loop หากเกมหยุด
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawWeatherEffects();
     updateWeatherEffects();
@@ -915,42 +1052,40 @@ function gameLoop() {
         displayStory();
     }
 
+    drawShip();
+    drawBullets();
+    drawEnemies();
+    drawExplosions();
+    drawScoreAndLives();
+    drawEnergyBar();
+    drawEnemyBullets();
+
+    updateShip();
+    updateBullets();
+    updateEnemies();
+    updatePowerUps();
+    updateEnemyBullets();
+    shootBullet();
+    enemyShootBullet();
+    checkSupportItemCollection();
+    regenEnergy();
+
     if (isBossActive) {
-        drawBossHealthBar();
         drawBoss();
-        updateBossPosition(); // เรียกฟังก์ชันอัปเดตตำแหน่งบอส
+        drawBossHealthBar();
+        updateBossPosition();
     } else {
         spawnBoss();
-        drawBackground();
-        drawShip();
-        drawBullets();
-        drawEnemies();
-        drawPowerUps();
-        drawExplosions();
-        drawScoreAndLives();
-        drawEnergyBar();
-        drawEnemyBullets();
-        updateShip();
-        updateBullets();
-        updateEnemies();
-        updatePowerUps();
-        updateEnemyBullets();
-        shootBullet();
-        enemyShootBullet();
-        checkSupportItemCollection();
-        regenEnergy(); // คงไว้แค่จุดนี้
     }
 
     requestAnimationFrame(gameLoop);
 }
 
-
-
 let isGameOver = false;
 
 function stopGame() {
-    isGameOver = true;
-    cancelAnimationFrame(gameLoop);
+    isGameRunning = false;
+    updateHighScore(); // อัปเดตคะแนนสูงสุดก่อนแสดง Game Over
     showGameOverScreen();
 }
 
